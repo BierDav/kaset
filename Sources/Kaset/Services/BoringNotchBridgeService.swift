@@ -70,7 +70,7 @@ final class BoringNotchBridgeService {
         do {
             let parameters = NWParameters.tcp
             parameters.allowLocalEndpointReuse = true
-            let listener = try NWListener(using: parameters, on: NWEndpoint.Port(rawValue: Constants.port)!)
+            let listener = try NWListener(using: parameters, on: NWEndpoint.Port(integerLiteral: Constants.port))
             self.listener = listener
 
             listener.newConnectionHandler = { [weak self] connection in
