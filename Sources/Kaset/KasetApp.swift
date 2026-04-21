@@ -39,6 +39,7 @@ struct KasetApp: App {
     @State private var syncedLyricsService: SyncedLyricsService
     @State private var equalizerService = EqualizerService.shared
     @State private var settings = SettingsManager.shared
+    @State private var boringNotchBridge: BoringNotchBridgeService?
 
     /// Triggers search field focus when set to true.
     @State private var searchFocusTrigger = false
@@ -102,6 +103,9 @@ struct KasetApp: App {
         scrobblingCoordinator.restoreAuthState()
         scrobblingCoordinator.startMonitoring()
         _scrobblingCoordinator = State(initialValue: scrobblingCoordinator)
+        let boringNotchBridge = BoringNotchBridgeService(playerService: player)
+        boringNotchBridge.start()
+        _boringNotchBridge = State(initialValue: boringNotchBridge)
 
         // Wire up PlayerService to AppDelegate immediately (not in onAppear)
         // This ensures playerService is available for lifecycle events like queue restoration
