@@ -79,9 +79,12 @@ final class VideoContainerView: NSView {
 
 // MARK: - Preview
 
+#if canImport(PreviewsMacros)
 @available(macOS 26.0, *)
 #Preview {
     VideoPlayerWindow()
         .environment(PlayerService())
         .frame(width: 480, height: 270)
 }
+
+#endif

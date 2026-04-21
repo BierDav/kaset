@@ -103,9 +103,12 @@ struct LoginSheet: View {
         self.isCheckingLogin = false
     }
 }
+#if canImport(PreviewsMacros)
 
 #Preview {
     LoginSheet()
         .environment(AuthService())
         .environment(WebKitManager.shared)
 }
+
+#endif

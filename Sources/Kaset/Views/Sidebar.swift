@@ -90,8 +90,11 @@ struct Sidebar: View {
     }
 }
 
+#if canImport(PreviewsMacros)
 @available(macOS 26.0, *)
 #Preview {
     Sidebar(selection: .constant(.home))
         .frame(width: 220)
 }
+
+#endif

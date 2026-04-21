@@ -2,19 +2,41 @@ import AppKit
 import SwiftUI
 
 extension EnvironmentValues {
-    @Entry var searchFocusTrigger: Binding<Bool> = .constant(false)
+    var searchFocusTrigger: Binding<Bool> {
+        get { self[SearchFocusTriggerKey.self] }
+        set { self[SearchFocusTriggerKey.self] = newValue }
+    }
+
+    var navigationSelection: Binding<NavigationItem?> {
+        get { self[NavigationSelectionKey.self] }
+        set { self[NavigationSelectionKey.self] = newValue }
+    }
+
+    var showCommandBar: Binding<Bool> {
+        get { self[ShowCommandBarKey.self] }
+        set { self[ShowCommandBarKey.self] = newValue }
+    }
+
+    var showWhatsNew: Binding<Bool> {
+        get { self[ShowWhatsNewKey.self] }
+        set { self[ShowWhatsNewKey.self] = newValue }
+    }
 }
 
-extension EnvironmentValues {
-    @Entry var navigationSelection: Binding<NavigationItem?> = .constant(nil)
+private struct SearchFocusTriggerKey: EnvironmentKey {
+    static let defaultValue: Binding<Bool> = .constant(false)
 }
 
-extension EnvironmentValues {
-    @Entry var showCommandBar: Binding<Bool> = .constant(false)
+private struct NavigationSelectionKey: EnvironmentKey {
+    static let defaultValue: Binding<NavigationItem?> = .constant(nil)
 }
 
-extension EnvironmentValues {
-    @Entry var showWhatsNew: Binding<Bool> = .constant(false)
+private struct ShowCommandBarKey: EnvironmentKey {
+    static let defaultValue: Binding<Bool> = .constant(false)
+}
+
+private struct ShowWhatsNewKey: EnvironmentKey {
+    static let defaultValue: Binding<Bool> = .constant(false)
 }
 
 // MARK: - KasetApp

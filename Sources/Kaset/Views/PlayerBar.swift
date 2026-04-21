@@ -543,6 +543,7 @@ struct PlayerBar: View {
     }
 }
 
+#if canImport(PreviewsMacros)
 @available(macOS 26.0, *)
 #Preview {
     PlayerBar()
@@ -552,3 +553,5 @@ struct PlayerBar: View {
         .padding()
         .background(Color(nsColor: .windowBackgroundColor))
 }
+
+#endif

@@ -154,6 +154,7 @@ struct AccountRowView: View {
 
 // MARK: - Preview
 
+#if canImport(PreviewsMacros)
 @available(macOS 26.0, *)
 #Preview("Primary Account - Selected") {
     let account = UserAccount(
@@ -213,3 +214,5 @@ struct AccountRowView: View {
     .frame(width: 280)
     .padding()
 }
+
+#endif

@@ -162,6 +162,7 @@ extension AccessibilityID {
 
 // MARK: - Preview
 
+#if canImport(PreviewsMacros)
 @available(macOS 26.0, *)
 #Preview("Error Toast") {
     ToastView(message: "Failed to switch account. Please try again.", isError: true) {
@@ -175,3 +176,5 @@ extension AccessibilityID {
     ToastView(message: "Account switched successfully", isError: false)
         .padding()
 }
+
+#endif

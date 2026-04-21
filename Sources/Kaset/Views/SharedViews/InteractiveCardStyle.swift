@@ -186,6 +186,7 @@ extension ButtonStyle where Self == ChipButtonStyle {
 
 // MARK: - Preview
 
+#if canImport(PreviewsMacros)
 @available(macOS 26.0, *)
 #Preview {
     VStack(spacing: 20) {
@@ -231,3 +232,5 @@ extension ButtonStyle where Self == ChipButtonStyle {
     }
     .padding()
 }
+
+#endif

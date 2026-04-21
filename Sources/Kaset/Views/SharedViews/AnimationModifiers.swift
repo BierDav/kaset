@@ -182,6 +182,7 @@ extension View {
 
 // MARK: - Preview
 
+#if canImport(PreviewsMacros)
 @available(macOS 26.0, *)
 #Preview {
     VStack(spacing: 24) {
@@ -204,3 +205,5 @@ extension View {
     }
     .padding()
 }
+
+#endif

@@ -450,6 +450,7 @@ struct ArtistDetailView: View {
         await self.playerService.playQueue(shuffledSongs, startingAt: 0)
     }
 }
+#if canImport(PreviewsMacros)
 
 #Preview {
     let artist = Artist(
@@ -468,3 +469,5 @@ struct ArtistDetailView: View {
     )
     .environment(PlayerService())
 }
+
+#endif

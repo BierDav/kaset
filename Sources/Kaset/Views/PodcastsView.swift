@@ -665,6 +665,7 @@ struct AllEpisodesView: View {
         )
     }
 }
+#if canImport(PreviewsMacros)
 
 #Preview {
     let authService = AuthService()
@@ -672,3 +673,5 @@ struct AllEpisodesView: View {
     PodcastsView(viewModel: PodcastsViewModel(client: client))
         .environment(PlayerService())
 }
+
+#endif

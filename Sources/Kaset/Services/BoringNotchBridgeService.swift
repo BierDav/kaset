@@ -173,7 +173,7 @@ final class BoringNotchBridgeService {
         Task {
             let response = await self.handleHTTPRequest(request, connectionID: id)
             if let response {
-                self.sendHTTPResponse(id: id, response)
+                self.sendHTTPResponse(id: id, response.data)
                 if !response.keepAlive {
                     self.closeConnection(id)
                 }
@@ -195,15 +195,15 @@ final class BoringNotchBridgeService {
             return (Self.songResponse(snapshot: self.currentSnapshot()), false)
 
         case ("GET", "/api/v1/like-state"):
-            let state = switch self.playerService.currentTrackLikeStatus {
+            let state: String? = switch self.playerService.currentTrackLikeStatus {
             case .like:
                 "LIKE"
             case .dislike:
                 "DISLIKE"
             case .indifferent:
-                NSNull()
+                nil
             }
-            return (Self.jsonResponse(status: 200, body: ["state": state]), false)
+            return (Self.jsonResponse(status: 200, body: ["state": state ?? NSNull()]), false)
 
         case ("POST", "/api/v1/play"):
             await self.playerService.resume()
@@ -496,7 +496,7 @@ final class BoringNotchBridgeService {
     private func currentSnapshot() -> PlaybackSnapshot {
         let track = self.playerService.currentTrack
         let artistDisplay = track?.artistsDisplay.trimmingCharacters(in: .whitespacesAndNewlines)
-        let artist = if let artistDisplay, !artistDisplay.isEmpty {
+        let artist: String? = if let artistDisplay, !artistDisplay.isEmpty {
             artistDisplay
         } else {
             nil
@@ -546,7 +546,7 @@ final class BoringNotchBridgeService {
 }
 
 private extension BoringNotchBridgeService {
-    static func parseHTTPRequest(from buffer: inout Data) -> HTTPRequest? {
+    private static func parseHTTPRequest(from buffer: inout Data) -> HTTPRequest? {
         let delimiter = Data("\r\n\r\n".utf8)
         guard let headerRange = buffer.range(of: delimiter) else { return nil }
 
@@ -585,13 +585,13 @@ private extension BoringNotchBridgeService {
         )
     }
 
-    static func isWebSocketUpgrade(_ headers: [String: String]) -> Bool {
+    private static func isWebSocketUpgrade(_ headers: [String: String]) -> Bool {
         let upgrade = headers["upgrade"]?.lowercased() == "websocket"
         let connection = headers["connection"]?.lowercased().contains("upgrade") == true
         return upgrade && connection
     }
 
-    static func webSocketHandshakeResponse(secWebSocketKey: String) -> Data {
+    private static func webSocketHandshakeResponse(secWebSocketKey: String) -> Data {
         let accept = Data(Insecure.SHA1.hash(data: Data("\(secWebSocketKey)\(Constants.wsGUID)".utf8))).base64EncodedString()
         let response = [
             "HTTP/1.1 101 Switching Protocols",
@@ -603,7 +603,7 @@ private extension BoringNotchBridgeService {
         return Data(response.utf8)
     }
 
-    static func parseWebSocketFrame(from buffer: inout Data) -> (opcode: UInt8, payload: Data)? {
+    private static func parseWebSocketFrame(from buffer: inout Data) -> (opcode: UInt8, payload: Data)? {
         guard buffer.count >= 2 else { return nil }
 
         let byte1 = buffer[0]
@@ -649,7 +649,7 @@ private extension BoringNotchBridgeService {
         return (opcode, payload)
     }
 
-    static func jsonBodyValue(_ data: Data, key: String) -> Double? {
+    private static func jsonBodyValue(_ data: Data, key: String) -> Double? {
         guard let object = try? JSONSerialization.jsonObject(with: data),
               let dict = object as? [String: Any]
         else {
@@ -668,7 +668,7 @@ private extension BoringNotchBridgeService {
         return nil
     }
 
-    static func songResponse(snapshot: PlaybackSnapshot) -> Data {
+    private static func songResponse(snapshot: PlaybackSnapshot) -> Data {
         var body: [String: Any] = [
             "isPaused": snapshot.isPaused,
             "repeatMode": snapshot.repeatMode,
@@ -698,7 +698,7 @@ private extension BoringNotchBridgeService {
         return Self.jsonResponse(status: 200, body: body)
     }
 
-    static func emptyResponse() -> Data {
+    private static func emptyResponse() -> Data {
         let response = [
             "HTTP/1.1 200 OK",
             "Content-Length: 0",
@@ -708,7 +708,7 @@ private extension BoringNotchBridgeService {
         return Data(response.utf8)
     }
 
-    static func plainResponse(status: Int, body: String) -> Data {
+    private static func plainResponse(status: Int, body: String) -> Data {
         let bodyData = Data(body.utf8)
         let response = [
             "HTTP/1.1 \(status) \(Self.statusText(status))",
@@ -723,7 +723,7 @@ private extension BoringNotchBridgeService {
         return data
     }
 
-    static func jsonResponse(status: Int, body: [String: Any]) -> Data {
+    private static func jsonResponse(status: Int, body: [String: Any]) -> Data {
         let bodyData = (try? JSONSerialization.data(withJSONObject: body, options: [])) ?? Data("{}".utf8)
         let response = [
             "HTTP/1.1 \(status) \(Self.statusText(status))",
@@ -738,7 +738,7 @@ private extension BoringNotchBridgeService {
         return data
     }
 
-    static func statusText(_ status: Int) -> String {
+    private static func statusText(_ status: Int) -> String {
         switch status {
         case 101:
             "Switching Protocols"

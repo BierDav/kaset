@@ -49,9 +49,12 @@ struct LoginWebView: NSViewRepresentable {
         }
     }
 }
+#if canImport(PreviewsMacros)
 
 #Preview {
     LoginWebView()
         .environment(WebKitManager.shared)
         .frame(width: 500, height: 600)
 }
+
+#endif

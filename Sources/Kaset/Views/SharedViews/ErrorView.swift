@@ -50,9 +50,12 @@ struct ErrorView: View {
         }
     }
 }
+#if canImport(PreviewsMacros)
 
 #Preview {
     ErrorView(message: "Something went wrong") {
         // No-op for preview
     }
 }
+
+#endif

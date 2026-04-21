@@ -116,6 +116,7 @@ struct NewReleasesView: View {
         }
     }
 }
+#if canImport(PreviewsMacros)
 
 #Preview {
     let authService = AuthService()
@@ -123,3 +124,5 @@ struct NewReleasesView: View {
     NewReleasesView(viewModel: NewReleasesViewModel(client: client))
         .environment(PlayerService())
 }
+
+#endif

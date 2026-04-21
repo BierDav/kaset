@@ -395,6 +395,7 @@ enum LibraryItem: Identifiable {
         }
     }
 }
+#if canImport(PreviewsMacros)
 
 #Preview {
     let authService = AuthService()
@@ -403,3 +404,5 @@ enum LibraryItem: Identifiable {
         .environment(PlayerService())
         .environment(FavoritesManager.shared)
 }
+
+#endif

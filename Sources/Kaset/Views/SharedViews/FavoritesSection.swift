@@ -329,6 +329,7 @@ private struct FavoriteItemCard: View {
 
 // MARK: - Preview
 
+#if canImport(PreviewsMacros)
 @available(macOS 26.0, *)
 #Preview {
     let manager = FavoritesManager(skipLoad: true)
@@ -356,3 +357,5 @@ private struct FavoriteItemCard: View {
         .environment(PlayerService())
         .padding()
 }
+
+#endif

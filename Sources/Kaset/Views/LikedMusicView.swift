@@ -294,6 +294,7 @@ struct LikedMusicView: View {
         }
     }
 }
+#if canImport(PreviewsMacros)
 
 #Preview {
     let authService = AuthService()
@@ -302,3 +303,5 @@ struct LikedMusicView: View {
         .environment(PlayerService())
         .environment(FavoritesManager.shared)
 }
+
+#endif

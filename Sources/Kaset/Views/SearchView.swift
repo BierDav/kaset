@@ -635,6 +635,7 @@ extension SearchResultItem {
         return false
     }
 }
+#if canImport(PreviewsMacros)
 
 #Preview {
     @Previewable @State var focusTrigger = false
@@ -644,3 +645,5 @@ extension SearchResultItem {
         .environment(PlayerService())
         .environment(FavoritesManager.shared)
 }
+
+#endif
