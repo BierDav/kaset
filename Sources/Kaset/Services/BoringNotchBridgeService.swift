@@ -93,6 +93,19 @@ final class BoringNotchBridgeService {
         }
     }
 
+    func stop() {
+        self.monitorTask?.cancel()
+        self.monitorTask = nil
+        self.listener?.cancel()
+        self.listener = nil
+        for state in self.connections.values {
+            state.connection.cancel()
+        }
+        self.connections.removeAll()
+        self.lastSnapshot = nil
+        self.logger.info("boring.notch bridge stopped")
+    }
+
     private func handleListenerState(_ state: NWListener.State) {
         if case let .failed(error) = state {
             self.logger.error("boring.notch bridge listener failed: \(error.localizedDescription)")

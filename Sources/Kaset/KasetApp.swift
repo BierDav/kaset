@@ -126,7 +126,6 @@ struct KasetApp: App {
         scrobblingCoordinator.startMonitoring()
         _scrobblingCoordinator = State(initialValue: scrobblingCoordinator)
         let boringNotchBridge = BoringNotchBridgeService(playerService: player)
-        boringNotchBridge.start()
         _boringNotchBridge = State(initialValue: boringNotchBridge)
 
         // Wire up PlayerService to AppDelegate immediately (not in onAppear)
@@ -168,6 +167,10 @@ struct KasetApp: App {
                         self.appDelegate.playerService = self.playerService
                         // Reference notificationService to keep SwiftUI from deallocating it
                         _ = self.notificationService
+                        // Start boring.notch bridge if enabled
+                        if self.settings.boringNotchBridgeEnabled {
+                            self.boringNotchBridge?.start()
+                        }
                     }
                     .task {
                         DiagnosticsLogger.app.info("KasetApp: Root task started")
@@ -191,6 +194,13 @@ struct KasetApp: App {
                         // equalizer a chance to spin up.
                         if isPlaying {
                             self.equalizerService.retryStartIfEnabled()
+                        }
+                    }
+                    .onChange(of: self.settings.boringNotchBridgeEnabled) { _, enabled in
+                        if enabled {
+                            self.boringNotchBridge?.start()
+                        } else {
+                            self.boringNotchBridge?.stop()
                         }
                     }
             }
