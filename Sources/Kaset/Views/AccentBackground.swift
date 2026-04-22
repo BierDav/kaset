@@ -118,7 +118,6 @@ extension View {
         modifier(AccentBackgroundModifier(imageURL: imageURL))
     }
 }
-#if canImport(PreviewsMacros)
 
 #Preview {
     VStack {
@@ -129,5 +128,3 @@ extension View {
     .frame(width: 400, height: 600)
     .accentBackground(from: nil)
 }
-
-#endif

@@ -195,7 +195,6 @@ struct SkeletonSectionView: View {
 }
 
 // MARK: - Preview
-#if canImport(PreviewsMacros)
 
 #Preview {
     VStack(spacing: 32) {
@@ -224,5 +223,3 @@ struct SkeletonSectionView: View {
     .padding()
     .frame(width: 600)
 }
-
-#endif

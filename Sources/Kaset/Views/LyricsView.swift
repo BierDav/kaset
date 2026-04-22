@@ -467,19 +467,11 @@ struct LyricsView: View {
             return
         }
 
-        let generationSchema: GenerationSchema? = {
-#if canImport(FoundationModelsMacros)
-            LyricsSummary.generationSchema
-#else
-            nil
-#endif
-        }()
-
         textToExplain = await FoundationModelsService.shared.fittedPromptContent(
             context: "lyrics explanation",
             instructions: instructions,
             content: textToExplain,
-            generationSchema: generationSchema
+            generationSchema: LyricsSummary.generationSchema
         ) { fittedLyrics in
             FoundationModelsPromptLibrary.lyricsExplanationPrompt(
                 trackTitle: track.title,
@@ -497,7 +489,6 @@ struct LyricsView: View {
         )
 
         do {
-#if canImport(FoundationModelsMacros)
             // Use streaming for progressive UI updates
             let stream = session.streamResponse(
                 to: prompt,
@@ -523,9 +514,6 @@ struct LyricsView: View {
                 self.showExplanation = true
                 self.logger.info("Generated lyrics explanation: mood=\(mood), themes=\(themes.joined(separator: ", "))")
             }
-#else
-            self.explanationError = "Lyrics explanation is unavailable in this build configuration"
-#endif
         } catch {
             if let message = AIErrorHandler.handleAndMessage(error, context: "lyrics explanation") {
                 self.explanationError = message
@@ -536,7 +524,6 @@ struct LyricsView: View {
         self.isExplaining = false
     }
 }
-#if canImport(PreviewsMacros)
 
 #Preview {
     let authService = AuthService()
@@ -545,5 +532,3 @@ struct LyricsView: View {
         .environment(PlayerService())
         .frame(height: 600)
 }
-
-#endif

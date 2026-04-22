@@ -111,7 +111,6 @@ struct HomeLoadingView: View {
         }
     }
 }
-#if canImport(PreviewsMacros)
 
 #Preview {
     VStack {
@@ -121,5 +120,3 @@ struct HomeLoadingView: View {
     }
     .frame(width: 600, height: 800)
 }
-
-#endif

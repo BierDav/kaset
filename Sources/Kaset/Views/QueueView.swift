@@ -239,7 +239,6 @@ private struct QueueRowView: View {
     }
 }
 
-#if canImport(PreviewsMacros)
 @available(macOS 26.0, *)
 #Preview("Queue View") {
     let playerService = PlayerService()
@@ -258,5 +257,3 @@ private struct QueueRowView: View {
         .environment(FavoritesManager.shared)
         .frame(height: 600)
 }
-
-#endif

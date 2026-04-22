@@ -185,7 +185,6 @@ struct TopSongsView: View {
         }
     }
 }
-#if canImport(PreviewsMacros)
 
 #Preview {
     let songs = (1 ... 10).map { i in
@@ -212,5 +211,3 @@ struct TopSongsView: View {
         .environment(PlayerService())
         .environment(FavoritesManager.shared)
 }
-
-#endif

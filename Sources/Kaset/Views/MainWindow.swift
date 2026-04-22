@@ -553,7 +553,6 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
     }
 }
 
-#if canImport(PreviewsMacros)
 @available(macOS 26.0, *)
 #Preview {
     @Previewable @State var navSelection: NavigationItem? = .home
@@ -566,4 +565,3 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
         .environment(WebKitManager.shared)
         .environment(accountService)
 }
-#endif

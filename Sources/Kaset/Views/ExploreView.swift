@@ -117,7 +117,6 @@ struct ExploreView: View {
         }
     }
 }
-#if canImport(PreviewsMacros)
 
 #Preview {
     let authService = AuthService()
@@ -125,5 +124,3 @@ struct ExploreView: View {
     ExploreView(viewModel: ExploreViewModel(client: client))
         .environment(PlayerService())
 }
-
-#endif

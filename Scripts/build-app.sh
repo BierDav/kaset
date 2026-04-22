@@ -14,7 +14,7 @@ source "$ROOT/version.env"
 CONF=${1:-release}
 SIGNING_MODE=${KASET_SIGNING:-dev}
 APP_NAME="Kaset"
-BUNDLE_ID="com.github.th-ch.youtube-music"
+BUNDLE_ID="com.sertacozercan.Kaset"
 DEVELOPMENT_LOCALIZATION="en"
 BUILD_DIR="$ROOT/.build/app"
 APP_BUNDLE="$BUILD_DIR/$APP_NAME.app"

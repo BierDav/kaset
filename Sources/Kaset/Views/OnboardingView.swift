@@ -114,12 +114,9 @@ private struct FeatureRow: View {
     }
 }
 
-#if canImport(PreviewsMacros)
 @available(macOS 26.0, *)
 #Preview {
     OnboardingView()
         .environment(AuthService())
         .environment(WebKitManager.shared)
 }
-
-#endif

@@ -116,7 +116,6 @@ struct ChartsView: View {
         }
     }
 }
-#if canImport(PreviewsMacros)
 
 #Preview {
     let authService = AuthService()
@@ -124,5 +123,3 @@ struct ChartsView: View {
     ChartsView(viewModel: ChartsViewModel(client: client))
         .environment(PlayerService())
 }
-
-#endif

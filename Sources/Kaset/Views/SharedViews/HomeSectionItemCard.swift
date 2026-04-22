@@ -180,7 +180,6 @@ struct HomeSectionItemCard: View {
         }
     }
 }
-#if canImport(PreviewsMacros)
 
 #Preview {
     let song = Song(
@@ -199,5 +198,3 @@ struct HomeSectionItemCard: View {
     }
     .padding()
 }
-
-#endif

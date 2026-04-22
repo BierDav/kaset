@@ -298,7 +298,6 @@ struct HomeView: View {
         }
     }
 }
-#if canImport(PreviewsMacros)
 
 #Preview {
     let authService = AuthService()
@@ -307,5 +306,3 @@ struct HomeView: View {
         .environment(PlayerService())
         .environment(FavoritesManager.shared)
 }
-
-#endif

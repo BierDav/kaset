@@ -673,7 +673,6 @@ private struct QueueFooterActions: View {
 
 // MARK: - Preview
 
-#if canImport(PreviewsMacros)
 @available(macOS 26.0, *)
 #Preview("Queue Side Panel") {
     let playerService = PlayerService()
@@ -682,5 +681,3 @@ private struct QueueFooterActions: View {
         .environment(FavoritesManager.shared)
         .frame(height: 600)
 }
-
-#endif

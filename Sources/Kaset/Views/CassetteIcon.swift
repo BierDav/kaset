@@ -48,11 +48,8 @@ struct CassetteIcon: View {
     }
 }
 
-#if canImport(PreviewsMacros)
 @available(macOS 26.0, *)
 #Preview {
     CassetteIcon(size: 80)
         .foregroundStyle(.pink)
 }
-
-#endif

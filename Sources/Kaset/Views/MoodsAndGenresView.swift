@@ -118,7 +118,6 @@ struct MoodsAndGenresView: View {
         }
     }
 }
-#if canImport(PreviewsMacros)
 
 #Preview {
     let authService = AuthService()
@@ -126,5 +125,3 @@ struct MoodsAndGenresView: View {
     MoodsAndGenresView(viewModel: MoodsAndGenresViewModel(client: client))
         .environment(PlayerService())
 }
-
-#endif

@@ -42,6 +42,12 @@ final class BoringNotchBridgeService {
         var isWebSocket = false
     }
 
+    private enum HTTPHandlingOutcome {
+        case noRequest
+        case keepAlive
+        case closeAfterSend
+    }
+
     private let playerService: PlayerService
     private let logger = DiagnosticsLogger.network
     private let token = UUID().uuidString
@@ -65,7 +71,12 @@ final class BoringNotchBridgeService {
     }
 
     func start() {
-        guard self.listener == nil else { return }
+        guard self.listener == nil else {
+            self.logger.debug("boring.notch bridge start requested while already running")
+            return
+        }
+
+        self.logger.info("Starting boring.notch bridge")
 
         do {
             let parameters = NWParameters.tcp
@@ -89,7 +100,7 @@ final class BoringNotchBridgeService {
             self.startMonitoringLoop()
             self.logger.info("boring.notch bridge listening on http://\(Constants.host):\(Constants.port)")
         } catch {
-            self.logger.error("Failed to start boring.notch bridge: \(error.localizedDescription)")
+            self.logger.error("Failed to start boring.notch bridge: \(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -107,10 +118,23 @@ final class BoringNotchBridgeService {
     }
 
     private func handleListenerState(_ state: NWListener.State) {
-        if case let .failed(error) = state {
-            self.logger.error("boring.notch bridge listener failed: \(error.localizedDescription)")
+        switch state {
+        case .ready:
+            self.logger.info("boring.notch bridge listener is ready")
+
+        case let .waiting(error):
+            self.logger.error("boring.notch bridge listener waiting: \(error.localizedDescription, privacy: .public)")
+
+        case let .failed(error):
+            self.logger.error("boring.notch bridge listener failed: \(error.localizedDescription, privacy: .public)")
             self.listener?.cancel()
             self.listener = nil
+
+        case .cancelled:
+            self.logger.info("boring.notch bridge listener cancelled")
+
+        default:
+            break
         }
     }
 
@@ -129,6 +153,7 @@ final class BoringNotchBridgeService {
     }
 
     private func handleConnectionState(id: ObjectIdentifier, state: NWConnection.State) {
+        self.logger.debug("Connection \(String(describing: id), privacy: .public) state: \(String(describing: state), privacy: .public)")
         switch state {
         case .failed, .cancelled:
             self.connections[id] = nil
@@ -142,13 +167,18 @@ final class BoringNotchBridgeService {
 
         state.connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [weak self] data, _, isComplete, error in
             Task { @MainActor [weak self] in
-                self?.handleReceive(id: id, data: data, isComplete: isComplete, error: error)
+                await self?.handleReceive(id: id, data: data, isComplete: isComplete, error: error)
             }
         }
     }
 
-    private func handleReceive(id: ObjectIdentifier, data: Data?, isComplete: Bool, error: NWError?) {
+    private func handleReceive(id: ObjectIdentifier, data: Data?, isComplete: Bool, error: NWError?) async {
         guard var state = self.connections[id] else { return }
+        var deferCloseAfterSend = false
+
+        self.logger.debug(
+            "Receive id=\(String(describing: id), privacy: .public), bytes=\(data?.count ?? 0, privacy: .public), isComplete=\(isComplete, privacy: .public), isWebSocket=\(state.isWebSocket, privacy: .public), error=\(error?.localizedDescription ?? "none", privacy: .public)"
+        )
 
         if let data, !data.isEmpty {
             state.buffer.append(data)
@@ -158,18 +188,22 @@ final class BoringNotchBridgeService {
             self.handleWebSocketFrames(id: id, state: &state)
             self.connections[id] = state
         } else {
-            self.handleHTTPRequests(id: id, state: &state)
+            let outcome = await self.handleHTTPRequests(id: id, state: &state)
+            deferCloseAfterSend = outcome == .closeAfterSend
             if self.connections[id] != nil {
                 self.connections[id] = state
             }
         }
 
         if error != nil || isComplete {
+            if deferCloseAfterSend {
+                return
+            }
             self.closeConnection(id)
             return
         }
 
-        if self.connections[id] != nil {
+        if self.connections[id] != nil, !deferCloseAfterSend {
             self.scheduleReceive(for: id)
         }
     }
@@ -180,32 +214,40 @@ final class BoringNotchBridgeService {
         self.connections[id] = nil
     }
 
-    private func handleHTTPRequests(id: ObjectIdentifier, state: inout ConnectionState) {
-        guard let request = Self.parseHTTPRequest(from: &state.buffer) else { return }
+    private func handleHTTPRequests(id: ObjectIdentifier, state: inout ConnectionState) async -> HTTPHandlingOutcome {
+        guard let request = Self.parseHTTPRequest(from: &state.buffer) else { return .noRequest }
+        self.logger.debug("Parsed HTTP request method=\(request.method, privacy: .public) path=\(request.path, privacy: .public)")
 
-        Task {
-            let response = await self.handleHTTPRequest(request, connectionID: id)
-            if let response {
-                self.sendHTTPResponse(id: id, response.data)
-                if !response.keepAlive {
-                    self.closeConnection(id)
-                }
-            }
+        switch await self.handleHTTPRequest(request, connectionID: id) {
+        case let .response(data, keepAlive):
+            self.sendHTTPResponse(id: id, data, closeAfterSend: !keepAlive)
+            return keepAlive ? .keepAlive : .closeAfterSend
+
+        case .upgradedToWebSocket:
+            // Keep local state in sync so the assignment in handleReceive does not
+            // overwrite websocket mode back to false.
+            state.isWebSocket = true
+            return .keepAlive
         }
     }
 
-    private func handleHTTPRequest(_ request: HTTPRequest, connectionID: ObjectIdentifier) async -> (data: Data, keepAlive: Bool)? {
+    private enum HTTPRequestAction {
+        case response(data: Data, keepAlive: Bool)
+        case upgradedToWebSocket
+    }
+
+    private func handleHTTPRequest(_ request: HTTPRequest, connectionID: ObjectIdentifier) async -> HTTPRequestAction {
         if request.method == "POST", request.path == "/auth/boringNotch" {
-            return (Self.jsonResponse(status: 200, body: ["accessToken": self.token]), false)
+            return .response(data: Self.jsonResponse(status: 200, body: ["accessToken": self.token]), keepAlive: false)
         }
 
         guard self.isAuthorized(request.headers) else {
-            return (Self.jsonResponse(status: 401, body: ["error": "Unauthorized"]), false)
+            return .response(data: Self.jsonResponse(status: 401, body: ["error": "Unauthorized"]), keepAlive: false)
         }
 
         switch (request.method, request.path) {
         case ("GET", "/api/v1/song"):
-            return (Self.songResponse(snapshot: self.currentSnapshot()), false)
+            return .response(data: Self.songResponse(snapshot: self.currentSnapshot()), keepAlive: false)
 
         case ("GET", "/api/v1/like-state"):
             let state: String? = switch self.playerService.currentTrackLikeStatus {
@@ -216,39 +258,39 @@ final class BoringNotchBridgeService {
             case .indifferent:
                 nil
             }
-            return (Self.jsonResponse(status: 200, body: ["state": state ?? NSNull()]), false)
+            return .response(data: Self.jsonResponse(status: 200, body: ["state": state ?? NSNull()]), keepAlive: false)
 
         case ("POST", "/api/v1/play"):
             await self.playerService.resume()
             await self.pushImmediateUpdates()
-            return (Self.emptyResponse(), false)
+            return .response(data: Self.emptyResponse(), keepAlive: false)
 
         case ("POST", "/api/v1/pause"):
             await self.playerService.pause()
             await self.pushImmediateUpdates()
-            return (Self.emptyResponse(), false)
+            return .response(data: Self.emptyResponse(), keepAlive: false)
 
         case ("POST", "/api/v1/toggle-play"):
             await self.playerService.playPause()
             await self.pushImmediateUpdates()
-            return (Self.emptyResponse(), false)
+            return .response(data: Self.emptyResponse(), keepAlive: false)
 
         case ("POST", "/api/v1/next"):
             await self.playerService.next()
             await self.pushImmediateUpdates()
-            return (Self.emptyResponse(), false)
+            return .response(data: Self.emptyResponse(), keepAlive: false)
 
         case ("POST", "/api/v1/previous"):
             await self.playerService.previous()
             await self.pushImmediateUpdates()
-            return (Self.emptyResponse(), false)
+            return .response(data: Self.emptyResponse(), keepAlive: false)
 
         case ("POST", "/api/v1/seek-to"):
             if let value = Self.jsonBodyValue(request.body, key: "seconds") {
                 await self.playerService.seek(to: max(0, value))
                 await self.pushImmediateUpdates(positionOnly: true)
             }
-            return (Self.emptyResponse(), false)
+            return .response(data: Self.emptyResponse(), keepAlive: false)
 
         case ("POST", "/api/v1/volume"):
             if let value = Self.jsonBodyValue(request.body, key: "volume") {
@@ -256,56 +298,49 @@ final class BoringNotchBridgeService {
                 await self.playerService.setVolume(clamped / 100)
                 await self.pushImmediateUpdates()
             }
-            return (Self.emptyResponse(), false)
+            return .response(data: Self.emptyResponse(), keepAlive: false)
 
         case ("GET", "/api/v1/shuffle"):
-            return (Self.jsonResponse(status: 200, body: ["state": self.playerService.shuffleEnabled]), false)
+            return .response(data: Self.jsonResponse(status: 200, body: ["state": self.playerService.shuffleEnabled]), keepAlive: false)
 
         case ("POST", "/api/v1/shuffle"):
             self.playerService.toggleShuffle()
             await self.pushImmediateUpdates()
-            return (Self.jsonResponse(status: 200, body: ["state": self.playerService.shuffleEnabled]), false)
+            return .response(data: Self.jsonResponse(status: 200, body: ["state": self.playerService.shuffleEnabled]), keepAlive: false)
 
         case ("GET", "/api/v1/repeat-mode"):
-            return (Self.jsonResponse(status: 200, body: ["mode": self.repeatModeString()]), false)
+            return .response(data: Self.jsonResponse(status: 200, body: ["mode": self.repeatModeString()]), keepAlive: false)
 
         case ("POST", "/api/v1/switch-repeat"):
             self.playerService.cycleRepeatMode()
             await self.pushImmediateUpdates()
-            return (Self.emptyResponse(), false)
+            return .response(data: Self.emptyResponse(), keepAlive: false)
 
         case ("POST", "/api/v1/like"):
             self.playerService.likeCurrentTrack()
             await self.pushImmediateUpdates()
-            return (Self.emptyResponse(), false)
+            return .response(data: Self.emptyResponse(), keepAlive: false)
 
         case ("POST", "/api/v1/dislike"):
             self.playerService.dislikeCurrentTrack()
             await self.pushImmediateUpdates()
-            return (Self.emptyResponse(), false)
+            return .response(data: Self.emptyResponse(), keepAlive: false)
 
         case ("GET", Constants.wsPath):
             guard Self.isWebSocketUpgrade(request.headers),
                   let secWebSocketKey = request.headers["sec-websocket-key"]
             else {
-                return (Self.plainResponse(status: 400, body: "Bad WebSocket request"), false)
+                return .response(data: Self.plainResponse(status: 400, body: "Bad WebSocket request"), keepAlive: false)
             }
 
             let response = Self.webSocketHandshakeResponse(secWebSocketKey: secWebSocketKey)
-            self.markWebSocketConnection(connectionID)
             self.sendHTTPResponse(id: connectionID, response)
             self.sendPlayerInfo(to: connectionID, type: "PLAYER_INFO")
-            return nil
+            return .upgradedToWebSocket
 
         default:
-            return (Self.plainResponse(status: 404, body: "Not Found"), false)
+            return .response(data: Self.plainResponse(status: 404, body: "Not Found"), keepAlive: false)
         }
-    }
-
-    private func markWebSocketConnection(_ id: ObjectIdentifier) {
-        guard var state = self.connections[id] else { return }
-        state.isWebSocket = true
-        self.connections[id] = state
     }
 
     private func isAuthorized(_ headers: [String: String]) -> Bool {
@@ -318,12 +353,20 @@ final class BoringNotchBridgeService {
         return authorization == self.token || authorization == "Bearer \(self.token)"
     }
 
-    private func sendHTTPResponse(id: ObjectIdentifier, _ payload: Data) {
+    private func sendHTTPResponse(id: ObjectIdentifier, _ payload: Data, closeAfterSend: Bool = false) {
         guard let state = self.connections[id] else { return }
+        self.logger.debug("Sending HTTP response id=\(String(describing: id), privacy: .public), bytes=\(payload.count, privacy: .public), closeAfterSend=\(closeAfterSend, privacy: .public)")
         state.connection.send(content: payload, completion: .contentProcessed { [weak self] error in
-            if let error {
-                Task { @MainActor [weak self] in
-                    self?.logger.error("HTTP send failed: \(error.localizedDescription)")
+            Task { @MainActor [weak self] in
+                if let error {
+                    self?.logger.error("HTTP send failed: \(error.localizedDescription, privacy: .public)")
+                    self?.closeConnection(id)
+                    return
+                }
+
+                self?.logger.debug("HTTP response send completed id=\(String(describing: id), privacy: .public)")
+
+                if closeAfterSend {
                     self?.closeConnection(id)
                 }
             }
@@ -369,7 +412,7 @@ final class BoringNotchBridgeService {
         state.connection.send(content: frame, completion: .contentProcessed { [weak self] error in
             if let error {
                 Task { @MainActor [weak self] in
-                    self?.logger.error("WebSocket send failed: \(error.localizedDescription)")
+                    self?.logger.error("WebSocket send failed: \(error.localizedDescription, privacy: .public)")
                     self?.closeConnection(id)
                 }
             }
@@ -426,8 +469,10 @@ final class BoringNotchBridgeService {
             self.broadcastWebSocketJSON(self.playerInfoPayload(type: "PLAYER_INFO", snapshot: snapshot))
         }
 
-        if previous?.videoId != snapshot.videoId, snapshot.videoId != nil {
+        if previous?.videoId != snapshot.videoId {
             self.broadcastWebSocketJSON(self.playerInfoPayload(type: "VIDEO_CHANGED", snapshot: snapshot))
+            // Some clients only refresh now-playing metadata on PLAYER_INFO.
+            self.broadcastWebSocketJSON(self.playerInfoPayload(type: "PLAYER_INFO", snapshot: snapshot))
         }
 
         if previous?.isPaused != snapshot.isPaused {
@@ -501,6 +546,9 @@ final class BoringNotchBridgeService {
         if let imageSrc = snapshot.imageSrc {
             payload["imageSrc"] = imageSrc
         }
+        if let videoId = snapshot.videoId {
+            payload["videoId"] = videoId
+        }
 
         payload["song"] = payload.filter { $0.key != "type" }
         return payload
@@ -531,7 +579,7 @@ final class BoringNotchBridgeService {
             repeatModeString: self.repeatModeString(),
             isShuffled: self.playerService.shuffleEnabled,
             volume: max(0, min(100, self.playerService.volume * 100)),
-            videoId: track?.videoId
+            videoId: track?.videoId ?? self.playerService.pendingPlayVideoId
         )
     }
 
@@ -706,6 +754,9 @@ private extension BoringNotchBridgeService {
         }
         if let imageSrc = snapshot.imageSrc {
             body["imageSrc"] = imageSrc
+        }
+        if let videoId = snapshot.videoId {
+            body["videoId"] = videoId
         }
 
         return Self.jsonResponse(status: 200, body: body)

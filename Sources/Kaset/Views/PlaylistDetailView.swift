@@ -530,19 +530,11 @@ struct PlaylistDetailView: View {
             from: tracks,
             limit: initialTrackLimit
         )
-        let generationSchema: GenerationSchema? = {
-#if canImport(FoundationModelsMacros)
-            PlaylistChanges.generationSchema
-#else
-            nil
-#endif
-        }()
-
         let trackLimit = await FoundationModelsService.shared.fittedLineCount(
             context: "playlist refinement",
             instructions: instructions,
             lines: trackLines,
-            generationSchema: generationSchema
+            generationSchema: PlaylistChanges.generationSchema
         ) { candidateLines in
             FoundationModelsPromptLibrary.playlistRefinementPrompt(
                 trackList: candidateLines.joined(separator: "\n"),
@@ -557,7 +549,7 @@ struct PlaylistDetailView: View {
             context: "playlist refinement request",
             instructions: instructions,
             content: prompt,
-            generationSchema: generationSchema
+            generationSchema: PlaylistChanges.generationSchema
         ) { candidateRequest in
             FoundationModelsPromptLibrary.playlistRefinementPrompt(
                 trackList: trackList,
@@ -577,7 +569,6 @@ struct PlaylistDetailView: View {
         )
 
         do {
-#if canImport(FoundationModelsMacros)
             // Use streaming for progressive UI updates
             let stream = session.streamResponse(
                 to: userPrompt,
@@ -608,9 +599,6 @@ struct PlaylistDetailView: View {
                     """
                 )
             }
-#else
-            self.refineError = "Playlist refinement is unavailable in this build configuration"
-#endif
         } catch {
             // Use centralized error handler for consistent messaging
             if let message = AIErrorHandler.handleAndMessage(error, context: "playlist refinement") {
@@ -886,7 +874,6 @@ private struct RefinePlaylistSheet: View {
         .buttonStyle(.plain)
     }
 }
-#if canImport(PreviewsMacros)
 
 #Preview {
     let playlist = Playlist(
@@ -908,5 +895,3 @@ private struct RefinePlaylistSheet: View {
     )
     .environment(PlayerService())
 }
-
-#endif

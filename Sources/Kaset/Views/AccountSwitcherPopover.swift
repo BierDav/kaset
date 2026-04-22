@@ -111,7 +111,6 @@ extension AccessibilityID {
 
 // MARK: - Preview
 
-#if canImport(PreviewsMacros)
 @available(macOS 26.0, *)
 #Preview("Account Switcher") {
     let authService = AuthService()
@@ -123,5 +122,3 @@ extension AccessibilityID {
         .frame(width: 300, height: 400)
         .padding()
 }
-
-#endif
